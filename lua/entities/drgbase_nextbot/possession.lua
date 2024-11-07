@@ -66,8 +66,8 @@ function ENT:PossessorView()
 		else origin = self:WorldSpaceCenter() end
 
 		local tr = self:TraceLine(
-			self:PossessorForward() * offset.x * self:GetModelScale() +
-			self:PossessorRight() * offset.y * self:GetModelScale() +
+			self:_PossessorForward() * offset.x * self:GetModelScale() +
+			self:_PossessorRight() * offset.y * self:GetModelScale() +
 			self:PossessorUp() * offset.z * self:GetModelScale(), {
 			start = origin,
 		})
@@ -94,17 +94,54 @@ function ENT:PossessorNormal()
 	return self:GetPossessor():EyeAngles():Forward()
 end
 
-function ENT:PossessorForward()
+function ENT:_PossessorForward()
 	if not self:IsPossessed() then return end
+
 	local lockedOn = self:PossessionGetLockedOn()
+
 	if IsValid(lockedOn) then
 		local dir = self:GetPos():DrG_Direction(lockedOn:GetPos())
 		dir.z = 0
+
+		return dir:GetNormalized()
+	end
+
+	local normal = self:PossessorNormal()
+	normal.z = 0
+
+	return normal:GetNormalized()
+end
+
+function ENT:_PossessorRight()
+	if not self:IsPossessed() then return end
+
+	local forward = self:_PossessorForward()
+	forward:Rotate(Angle(0, -90, 0))
+
+	return forward
+end
+
+function ENT:PossessorForward()
+	if not self:IsPossessed() then return end
+
+	if not self.UseDynamicWalkFrames then
+		return self:_PossessorForward()
+	end
+
+	local lockedOn = self:PossessionGetLockedOn()
+
+	if IsValid(lockedOn) then
+		local dir = self:GetPos():DrG_Direction(lockedOn:GetPos())
+		dir.z = 0
+
 		return dir:GetNormalized()
 	else
-		local normal = self:PossessorNormal()
-		normal.z = 0
-		return normal:GetNormalized()
+		local possessor = self:GetPossessor()
+		local vec = self:GetSequenceMove(possessor:KeyDown(IN_SPEED) and self.RunAnimation or self.WalkAnimation)
+
+		vec:Rotate(possessor:EyeAngles())
+
+		return vec
 	end
 end
 
@@ -174,12 +211,30 @@ function ENT:_HandlePossession(cor)
 			else self._DrGBasePossLast4DIR = "" end
 		elseif self.PossessionMovement == POSSESSION_MOVE_1DIR then
 			local direction = self:GetPos()
-			if forward then direction = direction + self:PossessorForward()
-			elseif backward then direction = direction - self:PossessorForward() end
-			if right then direction = direction + self:PossessorRight()
-			elseif left then direction = direction - self:PossessorRight() end
-			if direction ~= self:GetPos() then self:MoveTowards(direction)
-			else self:PossessionFaceForward() end
+			local toLookTowards = direction
+
+			if forward then 
+				direction = direction + self:PossessorForward()
+				toLookTowards = toLookTowards + self:_PossessorForward()
+			elseif backward then 
+				direction = direction - self:PossessorForward() 
+				toLookTowards = toLookTowards - self:_PossessorForward()
+			end
+
+			if right then 
+				direction = direction + self:PossessorRight()
+				toLookTowards = toLookTowards + self:_PossessorRight()
+			elseif left then 
+				direction = direction - self:PossessorRight() 
+				toLookTowards = toLookTowards - self:_PossessorRight()
+			end
+
+			if direction ~= self:GetPos() then 
+				self:Approach(direction)
+				self:FaceTowards(toLookTowards)
+			else 
+				self:PossessionFaceForward() 
+			end
 		elseif self.PossessionMovement == POSSESSION_MOVE_CUSTOM then
 			self:PossessionControls(forward, backward, right, left)
 		end

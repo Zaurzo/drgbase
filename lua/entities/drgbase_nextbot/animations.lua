@@ -5,6 +5,38 @@ local DebugAnims = CreateConVar("drgbase_debug_animations", "0", {FCVAR_ARCHIVE,
 
 -- Getters/setters --
 
+AccessorFunc(ENT, "_DrGBaseSequenceMovementLastCycle", "LastSequenceMovementCycle", FORCE_NUMBER)
+
+function ENT:GetSequenceMove(seq)
+	if isstring(seq) then
+		seq = self:LookupSequence(seq)
+	end
+
+	if not isnumber(seq) then return end
+
+	local cycle = self:GetCycle()
+	local lastCycle = self:GetLastSequenceMovementCycle() or 0
+	local successful, pos, ang = self:GetSequenceMovement(seq, self:GetSequence() == seq and lastCycle or 0, cycle)
+
+	self:SetLastSequenceMovementCycle(cycle)
+
+	if not successful then
+		return vector_origin, angle_zero
+	end
+
+	return pos, ang
+end
+
+function ENT:GetSequenceMoveSpeed(seq)
+	if isstring(seq) then
+		seq = self:LookupSequence(seq)
+	end
+
+	if not isnumber(seq) then return -1 end
+
+	return self:GetSequenceVelocity(seq, self:GetCycle()):Length()
+end
+
 function ENT:GetAnimInfoSequence(seq)
 	if isstring(seq) then seq = self:LookupSequence(seq)
 	elseif not isnumber(seq) then return {} end
@@ -499,9 +531,11 @@ if SERVER then
 					local velocity = self:GetVelocity()
 					velocity.z = 0
 					if not velocity:IsZero() then
-						local speed = velocity:Length()
-						local seqspeed = self:GetSequenceGroundSpeed(seq)
-						if seqspeed ~= 0 then self:SetPlaybackRate(speed/seqspeed) end
+						if not self.UseDynamicWalkFrames then
+							local speed = velocity:Length()
+							local seqspeed = self:GetSequenceGroundSpeed(seq)
+							if seqspeed ~= 0 then self:SetPlaybackRate(speed/seqspeed) end
+						end
 					elseif self:IsTurning() then
 						local success, _, angles = self:GetSequenceMovement(seq, 0, 1)
 						if success and angles.y ~= 0 then

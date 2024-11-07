@@ -645,26 +645,38 @@ if SERVER then
 
 	function ENT:UpdateSpeed()
 		if self:IsPlayingAnimation() then return end
+
 		local speed = self:OnUpdateSpeed()
+
 		if isnumber(speed) and speed >= 0 then
 			self:SetSpeed(math.Clamp(speed*MultSpeed:GetFloat(), 0, math.huge))
 		else
 			local seq = self:GetSequence()
+
 			if self:IsClimbing() then
 				local success, vec, angles = self:GetSequenceMovement(seq, 0, 1)
+
 				if success then
 					local height = vec.z
 					local duration = self:SequenceDuration(seq)
+
 					speed = height/duration
 				end
-			else speed = self:GetSequenceGroundSpeed(seq) end
-			if speed ~= 0 then self.loco:SetDesiredSpeed(speed*MultSpeed:GetFloat())
-			else self.loco:SetDesiredSpeed(1) end
+			else
+				speed = self.UseDynamicWalkFrames and self:GetSequenceMoveSpeed(seq) or self:GetSequenceGroundSpeed(seq) 
+			end
+
+			if speed ~= 0 then 
+				self.loco:SetDesiredSpeed(speed*MultSpeed:GetFloat())
+			else 
+				self.loco:SetDesiredSpeed(1) 
+			end
 		end
 	end
+
 	function ENT:OnUpdateSpeed()
 		if self:IsClimbing() then return self.ClimbSpeed
-		elseif self.UseWalkframes then return -1
+		elseif self.UseWalkframes or self.UseDynamicWalkFrames then return -1
 		elseif self:IsRunning() then return self.RunSpeed
 		else return self.WalkSpeed end
 	end

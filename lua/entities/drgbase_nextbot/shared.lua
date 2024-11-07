@@ -67,6 +67,7 @@ ENT.DeathDropHeight = 200
 -- Movements --
 DrGBase.IncludeFile("movements.lua")
 ENT.UseWalkframes = false
+ENT.UseDynamicWalkFrames = false
 ENT.WalkSpeed = 100
 ENT.RunSpeed = 200
 
